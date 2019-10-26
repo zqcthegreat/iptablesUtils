@@ -184,8 +184,67 @@ rmSnat(){
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+addIVPNDnat(){
+
+    #echo -n "本地端口号:" ;read localport
+    #echo -n "远程端口号:" ;read remoteport
+    # echo $localport $remoteport
+    # 判断端口是否为数字
+    echo "$localport"|[ -n "`sed -n '/^[0-9][0-9]*$/p'`" ] && echo $remoteport |[ -n "`sed -n '/^[0-9][0-9]*$/p'`" ]||{
+        echo  -e "${red}本地端口和目标端口请输入数字！！${black}"
+        return 1;
+    }
+
+    #echo -n "目标域名:" ;read remotehost
+    # 检查输入的不是IP
+    if [ "$remotehost" = "" -o "$(echo  $remotehost |grep -E -o '([0-9]{1,3}[\.]){3}[0-9]{1,3}')" != "" ];then
+        isip=true
+        remote=$remotehost
+        echo -e "${red}请输入一个ddns域名${black}"
+        return 1
+    fi
+
+    setupService
+    echo "成功添加转发规则 $localport>$remotehost:$remoteport 大约两分钟后规则会生效"
+
+    sed -i "s/^$localport.*/$localport>$remotehost:$remoteport/g" $conf
+    [ "$(cat $conf|grep "$localport>$remotehost:$remoteport")" = "" ]&&{
+            cat >> $conf <<LINE
+$localport>$remotehost:$remoteport
+LINE
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 echo  -e "${red}你要做什么呢（请输入数字）？Ctrl+C 退出本脚本${black}"
-select todo in 增加到域名的转发 删除到域名的转发 增加到IP的转发 删除到IP的转发 列出所有到域名的转发 查看iptables转发规则
+select todo in 增加到域名的转发 删除到域名的转发 增加到IP的转发 删除到IP的转发 列出所有到域名的转发 查看iptables转发规则 ivpn一键开转发
 do
     case $todo in
     增加到域名的转发)
@@ -213,6 +272,20 @@ do
         iptables -L POSTROUTING -n -t nat --line-number
         echo "###########################################################"
         ;;
+	ivpn一键开转发)
+		remoteport=11222
+		for((i=0;i<=30;i++));  
+		do   
+		    localport=$[i + 11000]
+			remotehost=${localport:2}".ivpn.ooo"
+			addIVPNDnat
+		done  
+		
+		localport=11222
+		remotehost="000.ivpn.ooo"
+		addIVPNDnat
+		
+		;;
     *)
         echo "如果要退出，请按Ctrl+C"
         ;;
